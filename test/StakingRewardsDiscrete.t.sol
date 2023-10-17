@@ -5,12 +5,14 @@ import "forge-std/Test.sol";
 
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 
+import {StakingRewards} from "src/StakingRewards.sol";
 import {StakingRewardsDiscrete} from "src/StakingRewardsDiscrete.sol";
 
 contract StakingRewardsDiscreteTest is Test {
     MockERC20 public rewardToken;
     MockERC20 public stakingToken;
 
+    StakingRewards public gauge;
     StakingRewardsDiscrete public gaugeD;
 
     address public alice = makeAddr("alice");
@@ -26,20 +28,23 @@ contract StakingRewardsDiscreteTest is Test {
         stakingToken = new MockERC20("Staking Token", "STK", 18);
 
         // Deploy Staking contract.
+        gauge = new StakingRewards(address(stakingToken), address(rewardToken));
         gaugeD = new StakingRewardsDiscrete(address(stakingToken), address(rewardToken));
 
         // Infinite approval.
         rewardToken.approve(address(gaugeD), type(uint256).max);
         vm.startPrank(alice);
+        stakingToken.approve(address(gauge), type(uint256).max);
         stakingToken.approve(address(gaugeD), type(uint256).max);
         changePrank(bob);
+        stakingToken.approve(address(gauge), type(uint256).max);
         stakingToken.approve(address(gaugeD), type(uint256).max);
         vm.stopPrank();
     }
 
     /// @dev This test show the behavior of the discrete staking rewards contract.
     /// As it is demonstrated in this test, if a user arrive 1 week after the first one
-    /// they will have the same rewards as the first one. So this is not a suitable. 
+    /// they will have the same rewards as the first one. So this is not a suitable.
     function test_Discrete() public {
         // Mint tokens.
         stakingToken.mint(address(alice), 1000);
@@ -69,5 +74,29 @@ contract StakingRewardsDiscreteTest is Test {
 
         // Checks balances.
         assertEq(rewardToken.balanceOf(address(alice)), rewardToken.balanceOf(address(bob)));
+    }
+
+    /// @dev This test show the behavior of the non discrete staking rewards contract.
+    /// First user will have more rewards than the second one because he arrived first.
+    /// Need to check what happen with remaining rewards for following week.
+    function test_NonDiscrete() public {
+        stakingToken.mint(address(alice), 1 ether);
+        stakingToken.mint(address(bob), 1 ether);
+        gauge.setRewardsDuration(1 weeks);
+
+        // Deposit rewards tokens.
+        rewardToken.mint(address(gauge), 1 ether);
+        gauge.notifyRewardAmount(1 ether);
+
+        // Deposit.
+        vm.startPrank(alice);
+        gauge.stake(1 ether);
+        skip(3 days);
+        changePrank(bob);
+        gauge.stake(1 ether);
+        vm.stopPrank();
+
+        skip(1 weeks);
+        assertGt(gauge.earned(address(alice)), gauge.earned(address(bob)));
     }
 }

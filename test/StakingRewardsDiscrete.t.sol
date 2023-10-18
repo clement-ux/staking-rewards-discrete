@@ -78,8 +78,7 @@ contract StakingRewardsDiscreteTest is Test {
 
     /// @dev This test show the behavior of the non discrete staking rewards contract.
     /// First user will have more rewards than the second one because he arrived first.
-    /// Issue with this contract is that there is no memory for rewards. i.e. if a user
-    /// don't claim reward for the period, rewards are streamed to all users on the following period.
+    /// Reward does have a memory.
     function test_NonDiscrete() public {
         stakingToken.mint(address(alice), 1 ether);
         stakingToken.mint(address(bob), 1 ether);
@@ -109,13 +108,16 @@ contract StakingRewardsDiscreteTest is Test {
         assertGt(block.timestamp, gauge.finishAt());
 
         // Notify remaining rewards for new rewards distribution period.
+        console.log(gauge.finishAt());
+        console.log(block.timestamp);
         changePrank(address(this));
-        gauge.notifyRewardAmount(rewardToken.balanceOf(address(gauge)));
+        rewardToken.mint(address(gauge), 1 ether);
+        gauge.notifyRewardAmount(1 ether);
         skip(1 weeks);
 
         // Assert that alice has lost last week rewards.
-        assertLt(aliceEarnedBefore, gauge.earned(address(alice)));
+        assertApproxEqRel(gauge.earned(address(alice)), aliceEarnedBefore + 0.5 ether, 1e5);
         // Assert that bob claim new rewards.
-        assertGt(gauge.earned(bob), 0);
+        assertApproxEqRel(gauge.earned(bob), 0.5 ether, 1e5);
     }
 }

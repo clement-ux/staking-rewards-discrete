@@ -67,6 +67,11 @@ contract StakingRewards {
         return rewardPerTokenStored + (rewardRate * (lastTimeRewardApplicable() - updatedAt) * 1e18) / totalSupply;
     }
 
+    function earned(address _account) public view returns (uint256) {
+        return
+            ((balanceOf[_account] * (rewardPerToken() - userRewardPerTokenPaid[_account])) / 1e18) + rewards[_account];
+    }
+
     function stake(uint256 _amount) external updateReward(msg.sender) {
         require(_amount > 0, "amount = 0");
         stakingToken.transferFrom(msg.sender, address(this), _amount);
@@ -79,11 +84,6 @@ contract StakingRewards {
         balanceOf[msg.sender] -= _amount;
         totalSupply -= _amount;
         stakingToken.transfer(msg.sender, _amount);
-    }
-
-    function earned(address _account) public view returns (uint256) {
-        return
-            ((balanceOf[_account] * (rewardPerToken() - userRewardPerTokenPaid[_account])) / 1e18) + rewards[_account];
     }
 
     function getReward() external updateReward(msg.sender) {
@@ -107,7 +107,7 @@ contract StakingRewards {
             rewardRate = (_amount + remainingRewards) / duration;
         }
 
-        require(rewardRate > 0, "reward rate = 0");
+        //require(rewardRate > 0, "reward rate = 0");
         require(rewardRate * duration <= rewardsToken.balanceOf(address(this)), "reward amount > balance");
 
         finishAt = block.timestamp + duration;
